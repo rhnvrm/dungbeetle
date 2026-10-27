@@ -19,7 +19,7 @@ func (a *Handlers) GetTasksList(w http.ResponseWriter, r *http.Request) {
 	tasks := a.co.GetTasks()
 
 	// Full task including SQL queries.
-	if r.URL.Query().Get("sql") == "" {
+	if r.URL.Query().Get("sql") != "false" {
 		a.sendResponse(w, tasks)
 		return
 	}
@@ -95,7 +95,7 @@ func (a *Handlers) handlePostJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !reValidateName.Match([]byte(req.JobID)) {
+	if req.JobID != "" && !reValidateName.Match([]byte(req.JobID)) {
 		a.sendErrorResponse(w, "invalid characters in the `job_id`", http.StatusBadRequest)
 		return
 	}
@@ -145,6 +145,7 @@ func (a *Handlers) handleCancelJob(w http.ResponseWriter, r *http.Request) {
 	if err := a.co.CancelJob(jobID, purge); err != nil {
 		a.log.Error("could not cancel job", "error", err, "job_id", jobID)
 		a.sendErrorResponse(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	a.sendResponse(w, true)
@@ -166,6 +167,12 @@ func (a *Handlers) handleCancelGroupJob(w http.ResponseWriter, r *http.Request) 
 	}
 
 	a.sendResponse(w, true)
+}
+
+// handleGetMetrics exposes Prometheus/VictoriaMetrics metrics for scraping.
+func (a *Handlers) handleGetMetrics(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	a.co.Metrics().WritePrometheus(w)
 }
 
 // sendResponse sends a JSON envelope to the HTTP response.
